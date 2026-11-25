@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101827"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="./manifest.json"><title>Snake — ESP32</title>
+<style>
+:root{--bg:#0b1220;--panel:#172438;--panel2:#263b55;--green:#a7ed70;--text:#f5f7fb;--muted:#aab8ca;--line:#344b66}
+*{box-sizing:border-box}
+html{min-height:100%;background:var(--bg)}
+body{margin:0;min-height:100vh;min-height:100svh;background:radial-gradient(ellipse at 20% 0%,#29445f 0%,#101b2d 48%,#0b1220 100%);color:var(--text);font-family:system-ui,Arial,sans-serif;display:flex;justify-content:center;align-items:center;padding:max(12px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+main{width:min(100%,520px);text-align:center}
+h1{font-size:clamp(1.8rem,5vw,2.6rem);letter-spacing:-2px;margin:4px 0}
+h1 span{color:var(--green)}
+.subtitle{color:var(--muted);margin:0 0 16px;font-size:.95rem}
+.stats{display:flex;gap:10px;margin-bottom:12px}
+.stat{flex:1;min-width:0;background:linear-gradient(145deg,#1b2b42,#142033);border:1px solid var(--line);border-radius:15px;padding:9px 6px;box-shadow:0 8px 22px #0002}
+.stat small{display:block;color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:1px}
+.stat strong{font-size:1.35rem;font-variant-numeric:tabular-nums}
+.board{background:linear-gradient(145deg,#1b2b42,#142033);border:1px solid var(--line);border-radius:20px;padding:11px;box-shadow:0 16px 40px #0005}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1;background:#0b1421;border-radius:12px;touch-action:none}
+#status{min-height:24px;color:var(--muted);font-size:.88rem;margin:10px 0}
+.actions{display:flex;gap:9px}
+button{border:1px solid transparent;border-radius:13px;padding:12px 14px;font:700 .95rem system-ui;cursor:pointer;touch-action:manipulation;transition:filter .15s,transform .15s}
+button:active{transform:scale(.97);filter:brightness(1.08)}
+.primary{background:linear-gradient(135deg,#b7f58a,#91df59);color:#172313;flex:1}
+.secondary{background:var(--panel2);color:white;border-color:#405873;flex:1}
+#connect,#fullscreen{width:100%;margin-top:11px;background:#dceaff;color:#17263b}
+#connect.connected{background:var(--green);color:#172313}
+#fullscreen{background:#263b55;color:#f5f7fb;border-color:#405873}
+.pad{display:grid;grid-template-columns:repeat(3, minmax(52px,64px));grid-template-rows:repeat(2,52px);gap:8px;justify-content:center;margin:14px auto 5px}
+.pad button{padding:0;background:linear-gradient(145deg,#304967,#20334c);color:white;border-color:#405873;font-size:1.25rem}
+.up{grid-column:2;grid-row:1}.left{grid-column:1;grid-row:2}.down{grid-column:2;grid-row:2}.right{grid-column:3;grid-row:2}
+.note{font-size:.73rem;color:var(--muted);line-height:1.45;margin:10px 5px}
+@media (orientation:landscape) and (min-width:600px){
+ body{padding:10px max(18px,env(safe-area-inset-right)) 10px max(18px,env(safe-area-inset-left))}
+ main{width:min(100%,1120px);display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);grid-template-areas:"heading stats" "subtitle stats" "board connect" "board fullscreen" "board pad" "board note";column-gap:clamp(16px,3vw,34px);row-gap:8px;align-items:center;text-align:center}
+ h1{grid-area:heading;text-align:left;align-self:end;font-size:clamp(1.8rem,4vh,2.5rem);margin:0}
+ .subtitle{grid-area:subtitle;text-align:left;align-self:start;margin:0;font-size:.85rem}
+ .stats{grid-area:stats;margin:0;align-self:center}
+ .board{grid-area:board;padding:10px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+ canvas{width:min(100%,calc(100svh - 116px));max-height:calc(100svh - 116px);height:auto}
+ #status{margin:7px 0;min-height:20px}
+ .actions{width:100%}
+ #connect{grid-area:connect;margin:0}
+ #fullscreen{grid-area:fullscreen;margin:0}
+ .pad{grid-area:pad;margin:4px auto;grid-template-rows:repeat(2,44px);gap:6px}
+ .note{grid-area:note;margin:0;font-size:.68rem}
+}
+@media (orientation:landscape) and (max-height:430px){
+ body{padding:5px 12px}
+ main{grid-template-columns:minmax(0,1.2fr) minmax(230px,.8fr);column-gap:14px;row-gap:4px}
+ h1{font-size:1.55rem}.subtitle{font-size:.72rem}
+ .stats{gap:6px}.stat{padding:5px}.stat small{font-size:.58rem}.stat strong{font-size:1.05rem}
+ .board{padding:7px}.board canvas{width:min(100%,calc(100svh - 78px));max-height:calc(100svh - 78px)}
+ #status{font-size:.72rem;margin:4px 0;min-height:16px}
+ button{padding:8px 10px;font-size:.82rem}
+ .pad{grid-template-rows:repeat(2,36px);margin:2px auto;gap:4px}
+ .note{font-size:.61rem;line-height:1.25}
+}
+@media (orientation:portrait) and (max-width:420px){body{padding:12px 12px 20px}main{max-width:440px}}
+</style></head><body><main>
+<h1>SNAKE<span>.</span></h1><p class="subtitle">Pegue as maçãs. Faça pontos. Cuidado para não bater! 🍎</p>
+<div class="stats"><div class="stat"><small>Pontuação</small><strong id="score">0</strong></div><div class="stat"><small>Meta</small><strong>20</strong></div><div class="stat"><small>Recorde</small><strong id="best">0</strong></div></div>
+<section class="board"><canvas id="game" width="400" height="400"></canvas><p id="status">Aperte “Iniciar jogo” para começar!</p>
+<div class="actions"><button class="primary" id="start">Iniciar jogo</button><button class="secondary" id="restart">Reiniciar ↻</button></div></section>
+<button id="connect">⌁ Conectar ao ESP32</button><button id="fullscreen">⛶ Ativar tela cheia</button>
+<div class="pad"><button class="up" data-dir="U">▲</button><button class="left" data-dir="L">◀</button><button class="down" data-dir="D">▼</button><button class="right" data-dir="R">▶</button></div>
+<p class="note">Use os controles na tela, deslize sobre o tabuleiro ou conecte os botões físicos do ESP32. Para a apresentação, gire o celular e ative a tela cheia.</p>
+</main>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),statusEl=document.getElementById('status');
+const N=20,CELL=20,GOAL=20;
+let snake,food,dir,nextDir,score,best=0,timer=null,running=false,ended=false,endingKind='',bleCharacteristic=null,animFrame=null;
+const SERVICE='7b3e0001-7a5b-4c2d-9f1a-1234567890ab',CHAR='7b3e0002-7a5b-4c2d-9f1a-1234567890ab';
+function sendEvent(code){if(bleCharacteristic){try{bleCharacteristic.writeValue(new TextEncoder().encode(code))}catch(e){console.warn(e)}}}
+function placeFood(){do{food={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}}while(snake.some(p=>p.x===food.x&&p.y===food.y))}
+function grid(){ctx.fillStyle='#0b1421';ctx.fillRect(0,0,400,400);ctx.strokeStyle='#142338';for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(i*20,0);ctx.lineTo(i*20,400);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*20);ctx.lineTo(400,i*20);ctx.stroke()}}
+function draw(){grid();if(!ended){ctx.fillStyle='#ff7777';ctx.beginPath();ctx.arc(food.x*20+10,food.y*20+10,7,0,Math.PI*2);ctx.fill();snake.forEach((p,i)=>{ctx.fillStyle=i===0?'#c9ff9b':'#83cf55';ctx.beginPath();ctx.roundRect(p.x*20+2,p.y*20+2,16,16,5);ctx.fill()})}else{ctx.fillStyle='white';ctx.textAlign='center';ctx.font='bold 25px system-ui';ctx.fillText(endingKind==='win'?'Você venceu!':'Fim de jogo!',200,65);ctx.font='15px system-ui';ctx.fillStyle='#c4d1df';ctx.fillText(endingKind==='win'?'Meta alcançada!':'Tente novamente!',200,91)}}
+function reset(){clearInterval(timer);if(animFrame)cancelAnimationFrame(animFrame);running=false;ended=false;endingKind='';score=0;snake=[{x:8,y:10},{x:7,y:10},{x:6,y:10}];dir=nextDir='R';placeFood();scoreEl.textContent='0';statusEl.textContent='Pronto! Aperte “Iniciar jogo”.';document.getElementById('start').textContent='Iniciar jogo';draw()}
+function setDirection(d){const opposite={U:'D',D:'U',L:'R',R:'L'};if(d!==opposite[dir])nextDir=d}
+function step(){dir=nextDir;const head={...snake[0]};if(dir==='U')head.y--;if(dir==='D')head.y++;if(dir==='L')head.x--;if(dir==='R')head.x++;
+const ate=head.x===food.x&&head.y===food.y,body=ate?snake:snake.slice(0,-1);
+if(head.x<0||head.x>=N||head.y<0||head.y>=N||body.some(p=>p.x===head.x&&p.y===head.y)){finish('lose');return}
+snake.unshift(head);if(ate){score++;scoreEl.textContent=score;best=Math.max(best,score);bestEl.textContent=best;sendEvent('E');if(score>=GOAL){finish('win');return}placeFood()}else snake.pop();draw()}
+function butterfly(x,y,scale,frame){ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);const flap=Math.sin(frame/5)*.45;ctx.fillStyle='#d8a5ff';ctx.beginPath();ctx.ellipse(-8,-7,9,13,-flap,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(8,-7,9,13,flap,0,Math.PI*2);ctx.fill();ctx.fillStyle='#a7ed70';ctx.beginPath();ctx.ellipse(-7,8,6,9,flap,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(7,8,6,9,-flap,0,Math.PI*2);ctx.fill();ctx.strokeStyle='white';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(0,12);ctx.stroke();ctx.restore()}
+function animateButterfly(){const start=performance.now();function frame(now){if(!ended)return;const f=now-start;grid();ctx.fillStyle='white';ctx.textAlign='center';ctx.font='bold 25px system-ui';ctx.fillText(endingKind==='win'?'Você venceu!':'Fim de jogo!',200,65);ctx.font='15px system-ui';ctx.fillStyle='#c4d1df';ctx.fillText(endingKind==='win'?'Meta alcançada!':'Tente novamente!',200,91);const p=Math.min(f/2600,1);butterfly(40+p*330,240-Math.sin(p*Math.PI*3)*65,1-p*.35,f);if(p<1)animFrame=requestAnimationFrame(frame)}animFrame=requestAnimationFrame(frame)}
+function finish(kind){clearInterval(timer);running=false;ended=true;endingKind=kind;if(kind==='win'){statusEl.textContent='Você conseguiu! A borboleta vai voar.';sendEvent('W')}else{statusEl.textContent='A cobrinha bateu! A borboleta vai voar.';sendEvent('X')}document.getElementById('start').textContent='Jogar novamente';draw();animateButterfly()}
+function start(){if(running)return;if(ended)reset();running=true;statusEl.textContent='Boa sorte!';document.getElementById('start').textContent='Em andamento';timer=setInterval(step,135)}
+function restart(){reset();start()}
+document.getElementById('start').onclick=start;document.getElementById('restart').onclick=restart;
+document.querySelectorAll('[data-dir]').forEach(b=>b.onclick=()=>setDirection(b.dataset.dir));
+document.addEventListener('keydown',e=>{const m={ArrowUp:'U',ArrowDown:'D',ArrowLeft:'L',ArrowRight:'R',w:'U',s:'D',a:'L',d:'R'};if(m[e.key]){e.preventDefault();setDirection(m[e.key])}});
+let tx=0,ty=0;canvas.addEventListener('touchstart',e=>{tx=e.changedTouches[0].clientX;ty=e.changedTouches[0].clientY},{passive:true});canvas.addEventListener('touchend',e=>{let dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.max(Math.abs(dx),Math.abs(dy))<18)return;setDirection(Math.abs(dx)>Math.abs(dy)?(dx>0?'R':'L'):(dy>0?'D':'U'))},{passive:true});
+document.getElementById('connect').onclick = async () => {
+  const btn = document.getElementById('connect');
+
+  if (!window.isSecureContext) {
+    statusEl.textContent = 'Abra o site pelo endereço HTTPS para usar Bluetooth.';
+    return;
+  }
+
+  if (!navigator.bluetooth) {
+    statusEl.textContent = 'Web Bluetooth não disponível. Use Chrome no Android ou um navegador compatível.';
+    return;
+  }
+
+  try {
+    statusEl.textContent = 'Escolha Snake_ESP32 na janela de dispositivos...';
+
+    // Busca dispositivos BLE pelo nome. O serviço é autorizado para uso depois da conexão.
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'Snake_ESP32' }],
+      optionalServices: [SERVICE]
+    });
+
+    device.addEventListener('gattserverdisconnected', () => {
+      bleCharacteristic = null;
+      btn.textContent = '⌁ Conectar ao ESP32';
+      btn.classList.remove('connected');
+      statusEl.textContent = 'ESP32 desconectado.';
+    });
+
+    statusEl.textContent = 'Dispositivo encontrado. Conectando...';
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE);
+    bleCharacteristic = await service.getCharacteristic(CHAR);
+
+    await bleCharacteristic.startNotifications();
+    bleCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
+      const value = new TextDecoder().decode(e.target.value).trim();
+      if (['U', 'D', 'L', 'R'].includes(value)) setDirection(value);
+    });
+
+    btn.textContent = '✓ ESP32 conectado';
+    btn.classList.add('connected');
+    statusEl.textContent = 'Conectado! Use os botões físicos ou na tela.';
+  } catch (e) {
+    console.error('Erro na conexão BLE:', e);
+    statusEl.textContent = 'Falha: ' + (e.message || e.name || 'não foi possível conectar');
+  }
+};
+
+document.getElementById('fullscreen').addEventListener('click', async () => {
+  try {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      try { await screen.orientation.lock('landscape'); } catch (_) {}
+      document.getElementById('fullscreen').textContent = '⛶ Sair da tela cheia';
+    } else {
+      await document.exitFullscreen();
+      document.getElementById('fullscreen').textContent = '⛶ Ativar tela cheia';
+    }
+  } catch (e) {
+    statusEl.textContent = 'Tela cheia indisponível neste navegador. Instale o app pela opção do Chrome.';
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) document.getElementById('fullscreen').textContent = '⛶ Ativar tela cheia';
+});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn));
+}
+
+reset();
+</script></body></html>
